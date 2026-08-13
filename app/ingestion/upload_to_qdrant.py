@@ -10,6 +10,8 @@ from chunker import build_chunks_with_metadata
 from embedder import embed_texts
 from qdrant_client_setup import get_client, DEFAULT_COLLECTION
  
+BATCH_SIZE = 20
+ 
  
 def upload_pdf_to_qdrant(pdf_path: str, collection_name: str = DEFAULT_COLLECTION):
     print("Loading PDF...")
@@ -38,12 +40,26 @@ def upload_pdf_to_qdrant(pdf_path: str, collection_name: str = DEFAULT_COLLECTIO
         )
         points.append(point)
  
-    print(f"Uploading {len(points)} points to Qdrant collection '{collection_name}'...")
     client = get_client()
-    client.upsert(collection_name=collection_name, points=points)
+    total = len(points)
+    print(f"Uploading {total} points to Qdrant collection '{collection_name}' in batches of {BATCH_SIZE}...")
+ 
+    for i in range(0, total, BATCH_SIZE):
+        batch = points[i:i + BATCH_SIZE]
+        attempts = 0
+        while attempts < 3:
+            try:
+                client.upsert(collection_name=collection_name, points=batch)
+                print(f"Uploaded batch {i // BATCH_SIZE + 1} ({i + len(batch)}/{total})")
+                break
+            except Exception as e:
+                attempts += 1
+                print(f"Batch {i // BATCH_SIZE + 1} failed (attempt {attempts}/3): {e}")
+                if attempts == 3:
+                    raise
  
     print("Upload complete.")
-    return len(points)
+    return total
  
  
 if __name__ == "__main__":
@@ -54,4 +70,3 @@ if __name__ == "__main__":
     pdf_path = sys.argv[1]
     count = upload_pdf_to_qdrant(pdf_path)
     print(f"\n{count} chunks stored permanently in Qdrant.")
- 

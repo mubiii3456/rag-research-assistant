@@ -12,7 +12,7 @@ from llm_generator import generate_answer
 st.set_page_config(page_title="RAG Research Assistant", page_icon="📚", layout="wide")
  
 st.title("📚 RAG Research Assistant")
-st.caption("Ask questions about the LangChain v1 documentation")
+st.caption("Ask question about aws ")
  
 if "messages" not in st.session_state:
     st.session_state.messages = []

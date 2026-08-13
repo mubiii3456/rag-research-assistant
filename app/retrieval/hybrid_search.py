@@ -6,26 +6,23 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "ingestion"))
  
 from embedder import embed_single_text
 from qdrant_client_setup import get_client, DEFAULT_COLLECTION
+_cached_points = None
+_cached_bm25 = None
  
  
 def get_all_chunks_from_qdrant(collection_name: str = DEFAULT_COLLECTION):
-    
-    client = get_client()
-    all_points = []
-    next_offset = None
- 
-    while True:
-        points, next_offset = client.scroll(
-            collection_name=collection_name,
-            limit=100,
-            offset=next_offset,
-            with_payload=True,
-        )
-        all_points.extend(points)
-        if next_offset is None:
-            break
- 
-    return all_points
+    import pickle
+
+    cache_path = os.path.join(os.path.dirname(__file__), "bm25_cache.pkl")
+
+    with open(cache_path, "rb") as f:
+        cached_data = pickle.load(f)
+
+    class FakePayloadWrapper:
+        def __init__(self, payload):
+            self.payload = payload
+
+    return [FakePayloadWrapper(item) for item in cached_data]
  
  
 def build_bm25_index(points):
@@ -58,11 +55,16 @@ def keyword_search(query, bm25, points, top_k=10):
  
  
 def hybrid_search(query, top_k=5):
-    
+    global _cached_points, _cached_bm25
+
     vector_results = vector_search(query, top_k=10)
- 
-    points = get_all_chunks_from_qdrant()
-    bm25 = build_bm25_index(points)
+
+    if _cached_points is None or _cached_bm25 is None:
+        _cached_points = get_all_chunks_from_qdrant()
+        _cached_bm25 = build_bm25_index(_cached_points)
+
+    points = _cached_points
+    bm25 = _cached_bm25
     keyword_results = keyword_search(query, bm25, points, top_k=10)
  
     
