@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "question": "What is AWS?",
+    "expected_topic": "AWS Overview",
+    "difficulty": "easy"
+  },
+  {
+    "id": 2,
+    "question": "What is the AWS shared responsibility model?",
+    "expected_topic": "AWS Security",
+    "difficulty": "easy"
+  },
+  {
+    "id": 3,
+    "question": "What are the pillars of the AWS Well-Architected Framework?",
+    "expected_topic": "AWS Architecture",
+    "difficulty": "easy"
+  },
+  {
+    "id": 4,
+    "question": "How does AWS IAM help with access control?",
+    "expected_topic": "AWS Security",
+    "difficulty": "medium"
+  },
+  {
+    "id": 5,
+    "question": "What is Amazon S3 used for?",
+    "expected_topic": "AWS Overview",
+    "difficulty": "easy"
+  },
+  {
+    "id": 6,
+    "question": "What is the difference between horizontal and vertical scaling in AWS?",
+    "expected_topic": "AWS Architecture",
+    "difficulty": "medium"
+  },
+  {
+    "id": 7,
+    "question": "What encryption options does AWS provide for data at rest?",
+    "expected_topic": "AWS Security",
+    "difficulty": "medium"
+  },
+  {
+    "id": 8,
+    "question": "What is Amazon EC2?",
+    "expected_topic": "AWS Overview",
+    "difficulty": "easy"
+  },
+  {
+    "id": 9,
+    "question": "How does AWS support high availability across regions?",
+    "expected_topic": "AWS Architecture",
+    "difficulty": "medium"
+  },
+  {
+    "id": 10,
+    "question": "What is AWS CloudTrail and why is it used?",
+    "expected_topic": "AWS Security",
+    "difficulty": "medium"
+  },
+  {
+    "id": 11,
+    "question": "What is the capital of France?",
+    "expected_topic": "NONE - should say not found",
+    "difficulty": "edge_case"
+  },
+  {
+    "id": 12,
+    "question": "How do I bake a chocolate cake?",
+    "expected_topic": "NONE - should say not found",
+    "difficulty": "edge_case"
+  },
+  {
+    "id": 13,
+    "question": "What is serverless computing and how does AWS Lambda relate to it?",
+    "expected_topic": "AWS Overview or Architecture",
+    "difficulty": "hard"
+  },
+  {
+    "id": 14,
+    "question": "Compare the cost implications of on-demand vs reserved EC2 instances",
+    "expected_topic": "AWS Overview",
+    "difficulty": "hard"
+  },
+  {
+    "id": 15,
+    "question": "What is defense in depth in the context of AWS security?",
+    "expected_topic": "AWS Security",
+    "difficulty": "hard"
+  }
+]
