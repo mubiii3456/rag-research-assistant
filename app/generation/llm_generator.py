@@ -22,7 +22,7 @@ def build_context(chunks):
     return "\n\n---\n\n".join(context_parts)
  
  
-def generate_answer(query: str, chunks: list) -> str:
+def generate_answer(query: str, chunks: list, conversation_history: list = None) -> str:
     context = build_context(chunks)
  
     user_message = f"""Context:
@@ -31,6 +31,15 @@ def generate_answer(query: str, chunks: list) -> str:
 Question: {query}
  
 Answer the question using only the context above."""
+    
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    if conversation_history:
+        for turn in conversation_history[-3:]:
+            messages.append({"role": "user", "content": turn["question"]})
+            messages.append({"role": "assistant", "content": turn["answer"]})
+
+    messages.append({"role": "user", "content": user_message})
  
     response = ollama.chat(
         model=MODEL_NAME,
@@ -41,7 +50,34 @@ Answer the question using only the context above."""
     )
  
     return response["message"]["content"]
- 
+
+def generate_answer_stream(query: str, chunks: list, conversation_history: list = None):
+    context = build_context(chunks)
+
+    user_message = f"""Context:
+{context}
+
+Question: {query}
+
+Answer the question using only the context above."""
+
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    if conversation_history:
+        for turn in conversation_history[-3:]:
+            messages.append({"role": "user", "content": turn["question"]})
+            messages.append({"role": "assistant", "content": turn["answer"]})
+
+    messages.append({"role": "user", "content": user_message})
+
+    stream = ollama.chat(
+        model=MODEL_NAME,
+        messages=messages,
+        stream=True,
+    )
+
+    for chunk in stream:
+        yield chunk["message"]["content"]
  
 if __name__ == "__main__":
     import sys

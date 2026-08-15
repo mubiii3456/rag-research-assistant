@@ -9,21 +9,37 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app", "generation
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "app", "ingestion"))
  
 from reranker import search_with_rerank
-from llm_generator import generate_answer
+from llm_generator import generate_answer, generate_answer_stream
 from upload_handler import process_uploaded_pdf, get_session_chunks
 from embedder import embed_single_text
-from qdrant_client_setup import get_client, UPLOADS_COLLECTION
- 
+from qdrant_client_setup import get_client, DEFAULT_COLLECTION, UPLOADS_COLLECTION
+from chat_db import init_db, save_message, load_messages, get_all_sessions
 st.set_page_config(page_title="RAG Research Assistant", page_icon="📚", layout="wide")
+init_db()
  
 MAX_FILE_SIZE_MB = 20
 MAX_QUESTIONS_PER_SESSION = 30
  
+query_params = st.query_params
+
+if "user_id" not in st.session_state:
+    if "uid" in query_params:
+        st.session_state.user_id = query_params["uid"]
+    else:
+        new_uid = str(uuid.uuid4())
+        st.session_state.user_id = new_uid
+        st.query_params["uid"] = new_uid
+
 if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
- 
+    if "sid" in query_params:
+        st.session_state.session_id = query_params["sid"]
+    else:
+        new_id = str(uuid.uuid4())
+        st.session_state.session_id = new_id
+        st.query_params["sid"] = new_id
+
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = load_messages(st.session_state.session_id)
  
 if "uploaded_filename" not in st.session_state:
     st.session_state.uploaded_filename = None
@@ -95,6 +111,28 @@ with st.sidebar:
  
     st.divider()
     st.caption(f"Questions asked this session: {st.session_state.question_count}/{MAX_QUESTIONS_PER_SESSION}")
+    st.divider()
+    st.subheader("Chats")
+
+    if st.button("+ New Chat"):
+        new_id = str(uuid.uuid4())
+        st.session_state.session_id = new_id
+        st.session_state.messages = []
+        st.query_params["sid"] = new_id
+        st.rerun()
+
+    all_sessions = get_all_sessions(st.session_state.user_id)
+
+    for s in all_sessions:
+        label = s["title"] if s["title"] else "New chat"
+        is_current = s["session_id"] == st.session_state.session_id
+        button_label = f"→ {label}" if is_current else label
+
+        if st.button(button_label, key=f"session_{s['session_id']}"):
+            st.session_state.session_id = s["session_id"]
+            st.session_state.messages = load_messages(s["session_id"])
+            st.query_params["sid"] = s["session_id"]
+            st.rerun()
  
  
 def search_uploads_only(query, session_id, top_k=5):
@@ -116,18 +154,28 @@ def search_uploads_only(query, session_id, top_k=5):
     return scored[:top_k]
  
  
-def run_search(query, scope, session_id):
+def build_search_query(query, messages):
+    recent_user_messages = [m["content"] for m in messages[-4:] if m["role"] == "user"]
+    if recent_user_messages:
+        context_str = " ".join(recent_user_messages[-2:])
+        return f"{context_str} {query}"
+    return query
+
+
+def run_search(query, scope, session_id, messages):
+    search_query = build_search_query(query, messages)
+
     if scope == "Default Library":
-        chunks = search_with_rerank(query, retrieve_k=10, final_k=5)
+        chunks = search_with_rerank(search_query, retrieve_k=10, final_k=5)
         return [{"payload": c["payload"]} for c in chunks]
- 
+
     elif scope == "My Upload":
-        results = search_uploads_only(query, session_id, top_k=5)
+        results = search_uploads_only(search_query, session_id, top_k=5)
         return [{"payload": r["payload"]} for r in results]
- 
+
     else:
-        default_chunks = search_with_rerank(query, retrieve_k=6, final_k=3)
-        upload_chunks = search_uploads_only(query, session_id, top_k=3)
+        default_chunks = search_with_rerank(search_query, retrieve_k=6, final_k=3)
+        upload_chunks = search_uploads_only(search_query, session_id, top_k=3)
         combined = [{"payload": c["payload"]} for c in default_chunks] + \
                    [{"payload": r["payload"]} for r in upload_chunks]
         return combined
@@ -157,23 +205,37 @@ if query:
     else:
         st.session_state.question_count += 1
         st.session_state.messages.append({"role": "user", "content": query})
+        save_message(st.session_state.session_id, st.session_state.user_id, "user", query)
         with st.chat_message("user"):
             st.markdown(query)
  
         with st.chat_message("assistant"):
-            with st.spinner("Searching and generating answer..."):
-                try:
-                    chunks = run_search(query, scope, st.session_state.session_id)
- 
-                    if not chunks:
-                        answer = "I couldn't find relevant information for that question in the selected document(s)."
-                    else:
-                        answer = generate_answer(query, chunks)
-                except Exception as e:
-                    chunks = []
-                    answer = f"Something went wrong while generating the answer. Please try again. ({e})"
- 
-            st.markdown(answer)
+            with st.spinner("Searching..."):
+                chunks = run_search(query, scope, st.session_state.session_id, st.session_state.messages)
+
+            try:
+                if not chunks:
+                    answer = "I couldn't find relevant information for that question in the selected document(s)."
+                    st.markdown(answer)
+                else:
+                    history = [
+                        {"question": m["content"], "answer": st.session_state.messages[i + 1]["content"]}
+                        for i, m in enumerate(st.session_state.messages[:-1])
+                        if m["role"] == "user" and i + 1 < len(st.session_state.messages)
+                        and st.session_state.messages[i + 1]["role"] == "assistant"
+                    ]
+
+                    placeholder = st.empty()
+                    full_answer = ""
+                    for token in generate_answer_stream(query, chunks, conversation_history=history):
+                        full_answer += token
+                        placeholder.markdown(full_answer)
+                    answer = full_answer
+
+            except Exception as e:
+                chunks = []
+                answer = f"Something went wrong while generating the answer. Please try again. ({e})"
+                st.markdown(answer)
  
             sources = [c["payload"] for c in chunks]
             if sources:
@@ -188,3 +250,4 @@ if query:
             "content": answer,
             "sources": sources,
         })
+        save_message(st.session_state.session_id, st.session_state.user_id, "assistant", answer)
