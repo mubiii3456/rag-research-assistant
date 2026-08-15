@@ -4,7 +4,6 @@ __pycache__/
 .env
 *.pdf
 .DS_Store
- bm25_cache.pkl
 .vscode/
 .streamlit/
 *.log
