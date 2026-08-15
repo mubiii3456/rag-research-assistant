@@ -1,4 +1,12 @@
+import os
 import ollama
+
+OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
+
+_client = ollama.Client(
+    host="https://ollama.com",
+    headers={"Authorization": f"Bearer {OLLAMA_API_KEY}"},
+)
  
 MODEL_NAME = "minimax-m3:cloud"
  
@@ -41,7 +49,7 @@ Answer the question using only the context above."""
 
     messages.append({"role": "user", "content": user_message})
  
-    response = ollama.chat(
+    response = _client.chat(
         model=MODEL_NAME,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -70,12 +78,11 @@ Answer the question using only the context above."""
 
     messages.append({"role": "user", "content": user_message})
 
-    stream = ollama.chat(
+    stream = _client.chat(
         model=MODEL_NAME,
         messages=messages,
         stream=True,
     )
-
     for chunk in stream:
         yield chunk["message"]["content"]
  
