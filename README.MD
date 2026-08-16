@@ -3,8 +3,7 @@
 A retrieval-augmented generation (RAG) system for querying AWS documentation, built with hybrid search, cross-encoder re-ranking, a cloud-hosted LLM, and a production-style feature set: multi-user chat persistence, conversation memory, session-scoped document uploads, and an automated evaluation suite.
  
 **Live demo:** https://rag-research-assistant-xouyr8vyrgb6w9e46ncikx.streamlit.app/
-**Repository:** https://github.com/mubiii3456/rag-research-assistant
- 
+
 ---
  
 ## Table of contents
